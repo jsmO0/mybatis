@@ -1,0 +1,35 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<!DOCTYPE configuration
+        PUBLIC "-//mybatis.org//DTD Config 3.0//EN"
+        "http://mybatis.org/dtd/mybatis-3-config.dtd">
+
+     <configuration>
+          <!--引入外部配置文件-->
+         <properties resource="db.properties"/>
+         <!-- 起别名-->
+         <typeAliases>
+             <!--给某一个类取别名，主要用于在有返回类型的查询操作中，用来替代全限定类名-->
+             <!--<typeAlias type="com.shuming.User" alias="User"/>-->
+             <!--给某一个指定的包下的所有类取别名，默认别名为类名首字母小写，但是Mybatis的别名对大小写不敏感-->
+             <package name="com.shuming"/>
+         </typeAliases>
+         <!-- environments标签内可以包含多个environment，也就是说可以配置多个数据库环境，选择一个default用的-->
+         <environments default="develop">
+             <environment id="develop">
+                 <transactionManager type="JDBC"></transactionManager>
+                 <dataSource type="POOLED">
+                     <property name="driver" value="${jdbc.driver}"/>
+                     <property name="url" value="${jdbc.url}"/>
+                     <property name="username" value="${jdbc.username}"/>
+                     <property name="password" value="${jdbc.password}"/>
+                 </dataSource>
+             </environment>
+         </environments>
+
+         <!-- 关联映射文件-->
+         <mappers>
+             <mapper resource="com/shuming/mapper/userMapper.xml"/>
+             <mapper resource="com/shuming/mapper/departmentMapper.xml"/>
+         </mappers>
+
+     </configuration>

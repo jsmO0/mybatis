@@ -1,0 +1,71 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<!DOCTYPE mapper
+        PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN"
+        "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+      <!--namespace用来唯一标示该mapper映射文件-->
+      <mapper namespace="com.shuming.mapper.UserMapper">
+
+        <!--配置resultMap
+           1.id用来唯一标示该resultMap
+           2.type关联的JavaBean类
+           3.<result column="u_id" property="id"/> 映射，column是所需要查询的表中的字段名，property是JavaBean中的字段属性名。
+        -->
+    <resultMap id="baseResultMap" type="User">
+        <result column="u_id" property="id"/>
+        <result column="u_name" property="name"/>
+        <result column="u_salary" property="salary"/>
+    </resultMap>
+        <!--
+        1.select 元素专门用来做查询操作，ID必须唯一，在同一个namespace下
+        2.parameterType 该SQL语句所需要的参数类型，可以不写，mybatis可以自动推断
+        3.resultType sql语句的执行结果集用什么对象来封装。
+        -->
+        <select id="get" parameterType="java.lang.Integer" resultMap="baseResultMap">
+            select id u_id,name u_name,salary u_salary from t_user where id = #{ id };
+        </select>
+
+        <!-- 查询多个对象-->
+        <select id="listAll" resultType="User">
+            select *from t_user;
+        </select>
+
+      <!-- 更新用户信息-->
+        <update id="update" parameterType="User">
+            update t_user set salary = #{salary}, name = #{name} where id = #{id};
+        </update>
+
+      <!--
+         1.插入新的用户信息
+         2.插入数据的时候可以自动返回生成的主键值 通过
+             useGeneratedKeys="true" keyProperty="id"来自动返回主键到id属性上
+      -->
+      <insert id="save" parameterType="com.shuming.User" useGeneratedKeys="true" keyProperty="id">
+            insert into t_user(name, salary,department) value(#{name}, #{salary},#{departments.department_id});
+      </insert>
+
+      <select id="conditionQuery" resultType="User">
+          select id,name,salary from t_user
+          where 1 =1
+          <if test="minSalary != null">
+             and salary >= #{minSalary}
+          </if>
+          <if test="maxSalary != null">
+              and salary &lt;= #{maxSalary}
+          </if>
+      </select>
+
+      <select id="nameConditionQuery" resultType="User">
+          select id,name,salary from t_user
+          <choose>
+              <when test="name != null">where name = #{name }</when>
+              <otherwise>;</otherwise>
+          </choose>
+      </select>
+      <!--使用forech批量插入-->
+      <insert id="batchSave" useGeneratedKeys="true" keyProperty="id">
+          insert into t_user(name,salary) values
+          <foreach collection="userList" item="user" separator=",">
+              (#{user.name},#{user.salary})
+          </foreach>
+      </insert>
+      </mapper>

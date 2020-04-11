@@ -1,0 +1,380 @@
+1.加载maven 依赖
+    <dependency>
+      <groupId>mysql</groupId>
+      <artifactId>mysql-connector-java</artifactId>
+      <version>5.1.46</version>
+    </dependency>
+
+    <!-- https://mvnrepository.com/artifact/org.mybatis/mybatis -->
+    <dependency>
+      <groupId>org.mybatis</groupId>
+      <artifactId>mybatis</artifactId>
+      <version>3.4.5</version>
+    </dependency>
+
+2. 全局配置文件mybatis-config.xml(此处只是简单配置)
+     <?xml version="1.0" encoding="UTF-8" ?>
+     <!DOCTYPE configuration
+             PUBLIC "-//mybatis.org//DTD Config 3.0//EN"
+             "http://mybatis.org/dtd/mybatis-3-config.dtd">
+          <configuration>
+              <!-- environments标签内可以包含多个environment，也就是说可以配置多个数据库环境，选择一个default用的-->
+              <environments default="develop">
+                  <environment id="develop">
+                      <transactionManager type="JDBC"></transactionManager>
+                      <dataSource type="POOLED">
+                          <property name="driver" value="com.mysql.jdbc.Driver"/>
+                          <property name="url" value="jdbc:mysql://localhost:3306/learning"/>
+                          <property name="username" value="root"/>
+                          <property name="password" value="JSM435991368"/>
+                      </dataSource>
+                  </environment>
+              </environments>
+              <!-- 关联映射文件-->
+              <mappers>
+                  <mapper resource="com/shuming/userMapper.xml"/>
+              </mappers>
+          </configuration>
+
+3.mapper映射文件(此处以select为例展示)
+     <?xml version="1.0" encoding="UTF-8" ?>
+     <!DOCTYPE mapper
+             PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN"
+             "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+           <!--namespace用来唯一标示该mapper映射文件-->
+           <mapper namespace="com.shuming.UserMapper">
+             <!--
+             1.select 元素专门用来做查询操作，ID必须唯一，在同一个namespace下
+             2.parameterType 该SQL语句所需要的参数类型，可以不写，mybatis可以自动推断
+             3.resultType sql语句的执行结果集用什么对象来封装。
+             -->
+             <select id="get" parameterType="java.lang.Integer" resultType="com.shuming.User">
+                 select id,name,salary from t_user where id = #{ id };
+             </select>
+           </mapper>
+ 4.编写代码
+             //1.加载全局配置文件
+             InputStream in = Resources.getResourceAsStream("mybatis-config.xml");
+             //2.获取SqlSessionFactory对象
+             SqlSessionFactory sqlSessionFactory = new SqlSessionFactoryBuilder().build(in);
+             /**
+              * 3.获取SqlSession对象
+              * 可以跟一个参数设置是否要自动提交事务
+              */
+             SqlSession sqlSession = sqlSessionFactory.openSession();
+             /**
+              * 4.进行查询操作
+              * 查询一个对象用selectOne(),第一个参数为namespace+id找到唯一的执行SQL，第二个参数为SQL所需要传入的参数
+              */
+             User user = sqlSession.selectOne("com.shuming.UserMapper.get",1);
+             System.out.println(user);
+             //5关闭资源
+             sqlSession.close();
+    这样就完成了利用mybatis实现了数据库的查询一条数据的操作
+
+ 5.通过OGNL取数据   #{}
+
+ 6.工具类，减少重复的代码
+      public class MybatisUtil {
+          //整个应用只需要一个sqlSessionFactory对象
+          private static SqlSessionFactory sqlSessionFactory = null;
+          static {
+              try {
+
+                  sqlSessionFactory = new SqlSessionFactoryBuilder().
+                          build(Resources.getResourceAsStream("mybatis-config.xml"));
+              } catch (IOException e1) {
+                  e1.printStackTrace();
+              } catch (Exception e2) {
+                  e2.printStackTrace();
+              }
+          }
+          //获取SqlSession对象，SqlSession是线程不安全的，所以应该每次事务都需要一个SqlSession对象
+           public static SqlSession getSqlSession(){
+                  return sqlSessionFactory.openSession();
+              }
+
+      }
+
+  7.各种基础操作
+          /**
+          * 查询多个对象
+          当只要获取表中两列的数据时，可以使用返回类型为map
+          * @returnList<User>
+          * @throws Exception
+          */
+         public List<User> queryList(){
+             List<User> userList = null;
+             SqlSession sqlSession = null;
+
+             try {
+                  sqlSession = MybatisUtil.getSqlSession();
+                  userList = sqlSession.selectList("com.shuming.UserMapper.listAll");
+             } catch (Exception e1){
+                 e1.printStackTrace();
+             } finally {
+                 sqlSession.close();
+             }
+
+             return userList;
+
+         }
+
+         /**
+              * 更新用户信息
+              * @param user
+              */
+             public void update(User user){
+                 List<User> userList = null;
+                 SqlSession sqlSession = null;
+                 int result = 0 ;
+
+                 try {
+                     sqlSession = MybatisUtil.getSqlSession();
+                      result = sqlSession.update("com.shuming.UserMapper.update",user);
+                      if ( result != 0) {
+                          sqlSession.commit();
+                          System.out.println("更新数据成功....");
+                      }
+
+                 } catch (Exception e1){
+                     e1.printStackTrace();
+                 } finally {
+                     sqlSession.close();
+                 }
+             }
+
+              /**
+               * 插入新的用户信息
+               * @param user
+               */
+              public void save(User user){
+                  SqlSession sqlSession = null;
+                  int result = 0 ;
+
+                  try {
+                      sqlSession = MybatisUtil.getSqlSession();
+                      result = sqlSession.insert("com.shuming.UserMapper.save",user);
+                      if ( result != 0) {
+                          sqlSession.commit();
+                          System.out.println("插入数据成功....");
+                      }
+
+                  } catch (Exception e1){
+                      e1.printStackTrace();
+                  } finally {
+                      sqlSession.close();
+                  }
+              }
+               插入时有一个注意点：
+                 可以通过xml中的设置来自动的返回生成的主键值
+                        <!--
+                          1.插入新的用户信息
+                          2.插入数据的时候可以自动返回生成的主键值 通过
+                              useGeneratedKeys="true" keyProperty="id"来自动返回主键到id属性上
+                        -->
+                       <insert id="save" parameterType="com.shuming.User" useGeneratedKeys="true" keyProperty="id">
+                             insert into t_user(name, salary) value(#{name}, #{salary});
+                       </insert>
+
+ 8.起别名
+              <!-- 起别名-->
+              <typeAliases>
+                  <!--给某一个类取别名，主要用于在有返回类型的查询操作中，用来替代全限定类名-->
+                  <!--<typeAlias type="com.shuming.User" alias="User"/>-->
+                  <!--给某一个指定的包下的所有类取别名，默认别名为类名首字母小写，但是Mybatis的别名对大小写不敏感-->
+                  <package name="com.shuming"/>
+              </typeAliases>
+      除了可以自己起别名外，mybatis还自己定义了Java常见类型的别名(看文档)
+
+ 9.导入外部的配置文件
+    <property name="driver" value="${jdbc.driver}"/>
+    <property name="url" value="${jdbc.url}"/>
+    <property name="username" value="${jdbc.username}"/>
+    <property name="password" value="${jdbc.password}"/>
+
+     <!--引入外部配置文件-->
+     <properties resource="db.properties"/>
+
+     <!--db.properties-->
+     jdbc.driver = com.mysql.jdbc.Driver
+     jdbc.url = jdbc:mysql://localhost:3306/learning
+     jdbc.username = root
+     jdbc.password = JSM435991368
+
+ 10.resultMap 设置
+    可以用来解决查询操作时，返回对象的字段名和表中的列名不一致的情况
+     1.简单使用
+     <!--配置resultMap
+               1.id用来唯一标示该resultMap
+               2.type关联的JavaBean类
+               3.<result column="u_id" property="id"/> 映射，column是所需要查询的表中的字段名，property是JavaBean中的字段属性名。
+              -->
+        <resultMap id="baseResultMap" type="User">
+            <result column="u_id" property="id"/>
+            <result column="u_name" property="name"/>
+            <result column="u_salary" property="salary"/>
+        </resultMap>
+            <!--
+            1.select 元素专门用来做查询操作，ID必须唯一，在同一个namespace下
+            2.parameterType 该SQL语句所需要的参数类型，可以不写，mybatis可以自动推断
+            3.resultType sql语句的执行结果集用什么对象来封装。
+            -->
+            <select id="get" parameterType="java.lang.Integer" resultMap="baseResultMap">
+                select id u_id,name u_name,salary u_salary from t_user where id = #{ id };
+            </select>
+ 11.使用mapper接口来完善开发
+     原理本质上是动态代理 : 源码看MapperProxy类
+     好处：
+         1.较少传统XML开发的冗余重复的代码
+         2.传统的XML配置的方式无法检测传入的参数类型，只有到运行时才能发现，使用mapper接口可以解决这一个问题
+     /**
+      * mapper接口注意:
+      * 1.接口的名字要和mapper.xml的namespace保持一致
+      * 2.接口里面的方法名字要和mapper.xml中的id属性一直
+      * 3.parameterType和resultType就是方法的返回类型和参数名
+      * 4.mapper.xml和mapper接口一般应在一个包下面
+      */
+     public interface UserMapper {
+         /**
+          * 查询单个对象
+          * @param id
+          * @return
+          */
+         User get(int id);
+
+         /**
+          * 查询多个对象
+          * @return
+          */
+         List<User> listAll();
+
+         /**
+          * 更新用户信息
+          * @param user
+          */
+         void update(User user);
+
+         /**
+          * 插入数据
+          * @param user
+          */
+         void save(User user);
+     }
+     使用：
+       public static void main(String[] args) throws Exception{
+               SqlSession sqlSession = MybatisUtil.getSqlSession();
+               UserMapper userMapper = sqlSession.getMapper(UserMapper.class);
+               User user = userMapper.get(2);
+               System.out.println(user);
+               sqlSession.close();
+           }
+
+ 12.解决需要传入多个参数的问题，比如登陆操作需要同属传入用户名和密码
+    原来的select API机没法用了
+    解决：
+       1 用对象封装
+       2 用 map封装
+       3 使用mybatis的Param注解 底层实现还是 map
+
+ 13. #和$符号的区别
+     #相当于PrepareStatement 会先使用？占位符然后再设置值，而且会自动把值全部加上''单引号
+     $会直接把数据传入SQL语句中，而且不会自动添加"单引号
+
+============================================================================================================
+使用注解开发
+直接将SQL写在接口方法上面
+  通过不同的注解来实现增删改查 @select @update @insert @delete
+  可以通过@Opinion来定义其他的配置
+  可以通过@Results注解来配置resultMap
+  通过ResultMap注解来使用results定义的resultMap.
+  不推荐使用
+
+动态SQL：
+<select id="conditionQuery" resultType="User">
+          select id,name,salary from t_user
+          <if test="minSalary != null">
+             where salary >= #{minSalary}
+          </if>
+      </select>
+
+     /**
+      * 查询薪资待遇大于minSalary的人的信息
+      * @param minSalary
+      * @return
+      */
+     List<User> conditionQuery(@Param("minSalary") int minSalary);
+查询薪资在某个范围内的员工信息 使用if
+   注意 ：  &lt;= 这是小于等于号，不是<=
+<select id="conditionQuery" resultType="User">
+          select id,name,salary from t_user
+          where 1 =1
+          <if test="minSalary != null">
+             and salary >= #{minSalary}
+          </if>
+          <if test="maxSalary != null">
+              and salary &lt;= #{maxSalary}
+          </if>
+      </select>
+为了消除掉 where 1 =1 这个条件 可以把下面的两个IF标签放在<where></where>里面
+where标签可以帮我做一些事情：
+   1 判断查询条件是否有where关键字，如果没有，它会在第一个查询条件之前自动的加上where
+   2 如果发现查询条件以and/or打头，它会把第一个and/or替换为where
+   所以建议所有的条件都以and/or打头，包裹在<where>标签内
+====================
+使用choose
+      <select id="nameConditionQuery" resultType="User">
+          select id,name,salary from t_user
+          <choose>
+              <when test="name != null">where name = #{name }</when>
+              <otherwise>;</otherwise>
+          </choose>
+      </select>
+          /**
+           * 根据名字来查询用户信息，如果名字为空，则返回所有人的信息
+           * @param name
+           * @return
+           */
+          List<User> nameConditionQuery(@Param("name") String name);
+使用<set>:
+   它用于update 语句中，可以帮我们在前面加上set 而且还可以帮我们去掉 set中多余的逗号
+<foreach>使用
+      <!--使用forech批量插入-->
+      <insert id="batchSave" useGeneratedKeys="true" keyProperty="id">
+          insert into t_user(name,salary) values
+          <foreach collection="userList" item="user" separator=",">
+              (#{user.name},#{user.salary})
+          </foreach>
+      </insert>
+
+          /**
+          * 使用foreach批量插入
+          * @param userList
+          */
+         void batchSave(@Param("userList") List<User> userList);
+      其中：collection参数为要迭代的数组或者list，open 在迭代之前插入的符号，close 在迭代之后插入的符号
+      separator属性是每次迭代完成插入的符号，item 属性是每次迭代的元素，index 迭代的索引
+
+=============================================================
+表设计
+   继承关系的表设计：比如 客户和内部员工都继承于普通user类
+   方式1 一张表中加一个列type来识别一个人属于那类
+   方式2 每类人有自己单独的一张表
+   方式3 共同的信息抽取出来一张表，另外的只存放不同的列
+
+   1对1 唯一外键约束方式（使用更多）和共享主键方式
+   1对多  外键在many 那边
+   多对1 外键在 many 那边 保存操作的时候，现保存one方
+   多对多  通过中间表来实现，
+
+     1对多和多对1的情况，只需要在many方那边依赖one方的对象就可以了，例如departments.department_id
+        <insert id="save" parameterType="com.shuming.User" useGeneratedKeys="true" keyProperty="id">
+                   insert into t_user(name, salary,department) value(#{name}, #{salary},#{departments.department_id});
+             </insert>
+
+    mybatis的额外sql:<resultMap>里面的<association>属性
+
+
+
+
+

@@ -1,0 +1,14 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<!DOCTYPE mapper
+        PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN"
+        "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+      <!--namespace用来唯一标示该mapper映射文件-->
+      <mapper namespace="com.shuming.mapper.DepartmentMapper">
+         <insert id="saveMany" useGeneratedKeys="true" keyProperty="id">
+            insert into t_department(department_name,department_id) values
+             <foreach collection="departmentList" separator="," item="d">
+                   (#{d.department_name},#{d.department_id})
+             </foreach>
+         </insert>
+
+      </mapper>
